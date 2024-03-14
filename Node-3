@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lorem Ipsum Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Lorem Ipsum Generator</h1>
+    <form id="form">
+        <label for="paragraphs">Número de parágrafos:</label>
+        <input type="number" id="paragraphs" name="paragraphs" min="1" required>
+        <button type="submit">Gerar</button>
+    </form>
+    <div id="output"></div>
+    <script src="script.js"></script>
+</body>
+</html>
+
+//script.js
+
+const form = document.getElementById('form');
+const output = document.getElementById('output');
+
+form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const paragraphs = formData.get('paragraphs');
+
+    try {
+        const response = await fetch(`/lorem?paragraphs=${paragraphs}`);
+        const data = await response.text();
+        output.innerHTML = data;
+    } catch (error) {
+        console.error('Erro ao gerar Lorem Ipsum:', error);
+    }
+});
+
+//server.js
+
+import http from 'http';
+import fs from 'fs/promises';
+import path from 'path';
+import { loremIpsum } from 'lorem-ipsum';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const server = http.createServer(async (req, res) => {
+    const { url } = req;
+
+    if (url === '/') {
+        try {
+            const html = await fs.readFile(path.resolve('public/index.html'), 'utf-8');
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(html);
+        } catch (error) {
+            console.error('Erro ao ler o arquivo HTML:', error);
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.end('Erro interno do servidor.');
+        }
+    } else if (url.startsWith('/lorem')) {
+        const queryParams = new URLSearchParams(url.split('?')[1]);
+        const paragraphs = queryParams.get('paragraphs');
+        const loremText = loremIpsum({ count: paragraphs, units: 'paragraphs' });
+
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end(loremText);
+    } else {
+        try {
+            const filePath = path.resolve(`public${url}`);
+            const fileContent = await fs.readFile(filePath);
+            res.writeHead(200, { 'Content-Type': getContentType(filePath) });
+            res.end(fileContent);
+        } catch (error) {
+            console.error('Erro ao ler o arquivo estático:', error);
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('Arquivo não encontrado.');
+        }
+    }
+});
+
+function getContentType(filePath) {
+    const extname = path.extname(filePath);
+    switch (extname) {
+        case '.html':
+            return 'text/html';
+        case '.css':
+            return 'text/css';
+        case '.js':
+            return 'text/javascript';
+        default:
+            return 'text/plain';
+    }
+}
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Servidor rodando em http://localhost:${PORT}`);
+});
+
+//styles.css
+
+body {
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    color: #333;
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+#output {
+    margin-top: 20px;
+}
